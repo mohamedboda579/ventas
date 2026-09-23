@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ventas del día · Eurollantas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#E8EAEC; --card:#FFFFFF; --ink:#16181B; --soft:#5B6168; --line:#D3D7DB;
+  --yellow:#F2C230; --yellowInk:#16181B; --red:#C8372D; --field:#F4F5F6;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]){
+  --bg:#121417; --card:#1C1F23; --ink:#EEF0F2; --soft:#9AA1A9; --line:#2D3238; --field:#24282D; --red:#E0645A;
+}}
+:root[data-theme="dark"]{--bg:#121417; --card:#1C1F23; --ink:#EEF0F2; --soft:#9AA1A9; --line:#2D3238; --field:#24282D; --red:#E0645A;}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 Barlow,system-ui,sans-serif;-webkit-tap-highlight-color:transparent}
+.wrap{max-width:520px;margin:0 auto;padding:14px 14px 40px}
+.cond{font-family:"Barlow Condensed",Barlow,system-ui,sans-serif}
+header{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;margin:6px 2px 14px}
+header h1{margin:0;font:700 30px/1 "Barlow Condensed",sans-serif;letter-spacing:.3px}
+header input[type=date]{font:600 16px Barlow,sans-serif;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.suc{margin-bottom:12px;font-weight:600;background:var(--card);border:1px solid var(--line)}
+.suc:invalid{color:var(--soft)}
+.total{background:var(--ink);color:var(--bg);border-radius:16px;padding:16px 18px;margin-bottom:14px}
+.total .big{font:700 46px/1 "Barlow Condensed",sans-serif}
+.total .sub{opacity:.75;font-size:14px;margin-top:2px}
+.methods{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:12px}
+.methods div{background:rgba(127,127,127,.18);border-radius:8px;padding:6px 6px}
+.methods small{display:block;font-size:12px;opacity:.75}
+.methods b{font:600 18px "Barlow Condensed",sans-serif}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px}
+label.l{display:block;font-size:14px;color:var(--soft);margin:12px 0 5px;font-weight:500}
+label.l:first-child{margin-top:0}
+.size{display:flex;align-items:center;gap:4px;background:var(--field);border-radius:12px;padding:6px 10px;border:2px solid transparent}
+.size:focus-within{border-color:var(--yellow)}
+.size input{width:100%;min-width:0;border:0;background:transparent;color:var(--ink);font:700 30px "Barlow Condensed",sans-serif;text-align:center;padding:4px 0;outline:none}
+.size span{font:600 26px "Barlow Condensed",sans-serif;color:var(--soft)}
+.chips{display:flex;gap:6px;overflow-x:auto;margin-top:8px;padding-bottom:2px}
+.chips button{flex:none;border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:999px;padding:5px 11px;font:600 15px "Barlow Condensed",sans-serif}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+input.t,select.t{width:100%;background:var(--field);color:var(--ink);border:2px solid transparent;border-radius:12px;padding:12px;font:500 17px Barlow,sans-serif;outline:none;-webkit-appearance:none;appearance:none}
+input.t:focus,select.t:focus{border-color:var(--yellow)}
+.qty{display:flex;align-items:center;background:var(--field);border-radius:12px;overflow:hidden}
+.qty button{width:48px;height:50px;border:0;background:transparent;color:var(--ink);font:600 26px Barlow,sans-serif}
+.qty output{flex:1;text-align:center;font:700 26px "Barlow Condensed",sans-serif}
+.money{position:relative}
+.money::before{content:"$";position:absolute;left:12px;top:50%;transform:translateY(-50%);font:600 20px "Barlow Condensed",sans-serif;color:var(--soft)}
+.money input{padding-left:26px;font:700 22px "Barlow Condensed",sans-serif}
+.money.big::before{font-size:26px;left:14px}
+.money.big input{padding-left:32px;font-size:30px}
+#auto{float:right;font-weight:400;font-size:13px;opacity:.8}
+.pay{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.pay button{border:2px solid var(--line);background:transparent;color:var(--ink);border-radius:12px;padding:12px 2px;font:600 16px Barlow,sans-serif}
+.pay button[aria-pressed=true]{background:var(--yellow);border-color:var(--yellow);color:var(--yellowInk)}
+.save{width:100%;margin-top:16px;border:0;border-radius:14px;background:var(--yellow);color:var(--yellowInk);font:700 22px "Barlow Condensed",sans-serif;padding:15px;letter-spacing:.3px}
+.save:active{transform:scale(.99)}
+.msg{min-height:20px;font-size:14px;color:var(--red);margin-top:8px;text-align:center}
+.msg.ok{color:var(--soft)}
+h2{font:700 22px "Barlow Condensed",sans-serif;margin:22px 2px 8px;display:flex;justify-content:space-between;align-items:baseline}
+h2 span{font:500 14px Barlow,sans-serif;color:var(--soft)}
+.list{display:flex;flex-direction:column;gap:8px}
+.item{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 12px;display:grid;grid-template-columns:1fr auto;gap:2px 10px;align-items:center}
+.item .m{font:700 21px "Barlow Condensed",sans-serif}
+.item .d{font-size:14px;color:var(--soft)}
+.item .a{font:700 22px "Barlow Condensed",sans-serif;text-align:right}
+.item .p{font-size:13px;text-align:right;color:var(--soft)}
+.item .x{grid-column:1/-1;display:flex;justify-content:flex-end}
+.item .x button{border:0;background:transparent;color:var(--red);font:500 14px Barlow,sans-serif;padding:4px 0}
+details{margin-top:18px}
+details summary{font:700 20px "Barlow Condensed",sans-serif;color:var(--soft);cursor:pointer;padding:6px 2px}
+details .list{margin-top:6px}
+.item.gone{opacity:.7;border-style:dashed}
+.item.gone .m,.item.gone .a{text-decoration:line-through}
+.item .x button.restore{color:var(--ink);font-weight:600}
+.empty{text-align:center;color:var(--soft);padding:18px;border:1px dashed var(--line);border-radius:14px}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px}
+.actions .primary{grid-column:1/-1;background:var(--yellow);border-color:var(--yellow);color:var(--yellowInk);font-weight:700}
+.actions button{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:12px;padding:12px;font:600 16px Barlow,sans-serif}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--yellow);outline-offset:2px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Ventas del día</h1>
+    <input type="date" id="day" aria-label="Fecha">
+  </header>
+
+  <select class="t suc" id="suc" aria-label="Sucursal">
+    <option value="">Elige la sucursal</option>
+    <option>Bodega</option>
+    <option>Ernesto Telefebre</option>
+    <option>Plaza Carolina</option>
+    <option>Betania</option>
+    <option>Chorrera</option>
+  </select>
+
+  <section class="total" aria-live="polite">
+    <div class="big cond" id="tTotal">$0.00</div>
+    <div class="sub" id="tSub">0 llantas · 0 ventas</div>
+    <div class="methods" id="tMethods"></div>
+  </section>
+
+  <form class="card" id="f" autocomplete="off">
+    <label class="l">Medida</label>
+    <div class="size">
+      <input id="w" inputmode="numeric" maxlength="3" placeholder="175" aria-label="Ancho">
+      <span>/</span>
+      <input id="h" inputmode="numeric" maxlength="2" placeholder="55" aria-label="Perfil">
+      <span>R</span>
+      <input id="r" inputmode="numeric" maxlength="2" placeholder="15" aria-label="Rin">
+    </div>
+    <div class="chips" id="chips"></div>
+
+    <div class="row">
+      <div>
+        <label class="l" for="marca">Vehículo</label>
+        <input class="t" id="marca" list="marcas" placeholder="Kia, Toyota…">
+        <datalist id="marcas"></datalist>
+      </div>
+      <div>
+        <label class="l" for="color">Color / tipo</label>
+        <input class="t" id="color" list="colores" placeholder="Taxi, rojo…">
+        <datalist id="colores"><option>Taxi</option><option>Gris</option><option>Rojo</option><option>Blanco</option><option>Negro</option><option>Azul</option></datalist>
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label class="l">Cantidad</label>
+        <div class="qty">
+          <button type="button" id="minus" aria-label="Menos">−</button>
+          <output id="q">1</output>
+          <button type="button" id="plus" aria-label="Más">+</button>
+        </div>
+      </div>
+      <div>
+        <label class="l" for="precio">Precio por llanta</label>
+        <div class="money"><input class="t" id="precio" inputmode="decimal" placeholder="0.00"></div>
+      </div>
+    </div>
+
+    <label class="l" for="monto">Monto total <span id="auto">se calcula solo</span></label>
+    <div class="money big"><input class="t" id="monto" inputmode="decimal" placeholder="0.00"></div>
+
+    <label class="l">Forma de pago</label>
+    <div class="pay" id="pay">
+      <button type="button" data-v="Yappy">Yappy</button>
+      <button type="button" data-v="Punto">Punto</button>
+      <button type="button" data-v="Efectivo">Efectivo</button>
+      <button type="button" data-v="Otro">Otro</button>
+    </div>
+
+    <button class="save" type="submit">Guardar venta</button>
+    <div class="msg" id="msg"></div>
+  </form>
+
+  <h2>Ventas de hoy <span id="cnt"></span></h2>
+  <div class="list" id="list"></div>
+
+  <details id="trashWrap" hidden>
+    <summary>Papelera (<span id="trashCnt">0</span>)</summary>
+    <div class="list" id="trash"></div>
+  </details>
+
+  <div class="actions">
+    <button type="button" id="imgBtn" class="primary">Enviar resumen con imagen</button>
+    <button type="button" id="share">Enviar como texto</button>
+    <button type="button" id="copy">Copiar resumen</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  const KEY='eurollantas-ventas-v1';
+  const METHODS=['Yappy','Punto','Efectivo','Otro'];
+  const $=id=>document.getElementById(id);
+  let data={};
+  try{ data=JSON.parse(localStorage.getItem(KEY)||'{}')||{}; }catch(e){ data={}; }
+  const persist=()=>{ try{ localStorage.setItem(KEY,JSON.stringify(data)); }catch(e){ flash('No se pudo guardar en este teléfono. Revisa el espacio disponible.'); } };
+
+  const today=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
+  $('day').value=today();
+  const day=()=>$('day').value||today();
+  const raw=()=>data[day()]||[];
+  const sales=()=>raw().filter(x=>!x.borrada);
+  const trash=()=>raw().filter(x=>x.borrada);
+  const money=n=>'$'+(Number(n)||0).toFixed(2);
+  const fmtDay=s=>{const [y,m,d]=s.split('-');return d+'/'+m+'/'+y;};
+
+  let qty=1, pay=null, montoManual=false;
+  function calc(){
+    if(montoManual) return;
+    const pr=parseFloat(($('precio').value||'').replace(',','.'));
+    $('monto').value = pr>0 ? (pr*qty).toFixed(2) : '';
+    $('auto').textContent = pr>0 ? 'se calcula solo' : 'se calcula solo';
+  }
+  $('precio').addEventListener('input',()=>{montoManual=false;calc();});
+  $('monto').addEventListener('input',()=>{montoManual=true;$('auto').textContent='escrito a mano';});
+  $('minus').onclick=()=>{qty=Math.max(1,qty-1);$('q').value=qty;calc();};
+  $('plus').onclick=()=>{qty=Math.min(20,qty+1);$('q').value=qty;calc();};
+  $('pay').querySelectorAll('button').forEach(b=>b.onclick=()=>{
+    pay=b.dataset.v;
+    $('pay').querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x===b));
+  });
+  [['w',3,'h'],['h',2,'r'],['r',2,'marca']].forEach(([id,len,next])=>{
+    $(id).addEventListener('input',e=>{
+      e.target.value=e.target.value.replace(/\D/g,'');
+      if(e.target.value.length>=len) $(next).focus();
+    });
+  });
+
+  function allItems(){ return Object.values(data).flat(); }
+  function renderChips(){
+    const counts={};
+    allItems().forEach(s=>counts[s.medida]=(counts[s.medida]||0)+1);
+    const top=Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,8).map(x=>x[0]);
+    $('chips').innerHTML='';
+    top.forEach(m=>{
+      const b=document.createElement('button'); b.type='button'; b.textContent=m;
+      b.onclick=()=>{const p=m.match(/(\d+)\/(\d+) R(\d+)/); if(p){$('w').value=p[1];$('h').value=p[2];$('r').value=p[3];$('marca').focus();}};
+      $('chips').appendChild(b);
+    });
+    const marcas=[...new Set(['Kia','Toyota','Hyundai','Chevrolet','Mitsubishi','Nissan','Suzuki','Honda',...allItems().map(s=>s.marca).filter(Boolean)])];
+    $('marcas').innerHTML=marcas.map(m=>'<option>'+m.replace(/</g,'')+'</option>').join('');
+  }
+
+  function totals(){
+    const s=sales(); const by={}; METHODS.forEach(m=>by[m]=0);
+    let t=0,l=0; s.forEach(x=>{t+=x.monto;l+=x.cant;by[x.pago]=(by[x.pago]||0)+x.monto;});
+    return {t,l,n:s.length,by};
+  }
+
+  function render(){
+    const {t,l,n,by}=totals();
+    $('tTotal').textContent=money(t);
+    $('tSub').textContent=l+(l===1?' llanta':' llantas')+' · '+n+(n===1?' venta':' ventas');
+    $('tMethods').innerHTML=METHODS.map(m=>'<div><small>'+m+'</small><b>'+money(by[m])+'</b></div>').join('');
+    const isToday=day()===today();
+    $('cnt').textContent=isToday?'':fmtDay(day());
+    document.querySelector('h2').firstChild.nodeValue=isToday?'Ventas de hoy ':'Ventas del ';
+    const list=$('list'); list.innerHTML='';
+    const s=sales();
+    if(!s.length){ list.innerHTML='<div class="empty">Todavía no hay ventas este día. Anota la primera arriba.</div>'; }
+    s.slice().reverse().forEach(x=>{
+      const el=document.createElement('div'); el.className='item';
+      const m=document.createElement('div'); m.className='m'; m.textContent=x.medida+'  ×'+x.cant;
+      const a=document.createElement('div'); a.className='a'; a.textContent=money(x.monto);
+      const d=document.createElement('div'); d.className='d'; d.textContent=[x.marca,x.color].filter(Boolean).join(' · ')||'Sin vehículo';
+      const p=document.createElement('div'); p.className='p'; p.textContent=x.hora+' · '+x.pago;
+      const xb=document.createElement('div'); xb.className='x';
+      const del=document.createElement('button'); del.type='button'; del.textContent='Borrar';
+      del.onclick=()=>{ if(confirm('¿Borrar la venta '+x.medida+' de '+money(x.monto)+'? Quedará en la papelera.')){ x.borrada=new Date().toLocaleTimeString('es',{hour:'numeric',minute:'2-digit'}); persist(); render(); flash('Venta enviada a la papelera.',true); } };
+      xb.appendChild(del);
+      el.append(m,a,d,p,xb); list.appendChild(el);
+    });
+    const tr=trash(); const tb=$('trash');
+    $('trashWrap').hidden=!tr.length;
+    $('trashCnt').textContent=tr.length;
+    tb.innerHTML='';
+    tr.forEach(x=>{
+      const el=document.createElement('div'); el.className='item gone';
+      const m=document.createElement('div'); m.className='m'; m.textContent=x.medida+'  ×'+x.cant;
+      const a=document.createElement('div'); a.className='a'; a.textContent=money(x.monto);
+      const d=document.createElement('div'); d.className='d'; d.textContent=[x.marca,x.color].filter(Boolean).join(' · ')||'Sin vehículo';
+      const p=document.createElement('div'); p.className='p'; p.textContent='Borrada '+x.borrada;
+      const xb=document.createElement('div'); xb.className='x';
+      const rb=document.createElement('button'); rb.type='button'; rb.className='restore'; rb.textContent='Restaurar';
+      rb.onclick=()=>{ delete x.borrada; persist(); render(); flash('Venta restaurada.',true); };
+      xb.appendChild(rb); el.append(m,a,d,p,xb); tb.appendChild(el);
+    });
+    renderChips();
+  }
+
+  let msgT;
+  function flash(t,ok){ const m=$('msg'); m.textContent=t; m.className='msg'+(ok?' ok':''); clearTimeout(msgT); msgT=setTimeout(()=>m.textContent='',3000); }
+
+  $('f').addEventListener('submit',e=>{
+    e.preventDefault();
+    if(!$('suc').value){ flash('Elige la sucursal arriba.'); $('suc').focus(); return; }
+    const w=$('w').value,h=$('h').value,r=$('r').value;
+    if(!w||!h||!r){ flash('Completa la medida: ancho, perfil y rin.'); return; }
+    const monto=parseFloat(($('monto').value||'').replace(',','.'));
+    if(!(monto>0)){ flash('Escribe el monto de la venta.'); $('monto').focus(); return; }
+    if(!pay){ flash('Elige la forma de pago.'); return; }
+    const now=new Date();
+    const hora=now.toLocaleTimeString('es',{hour:'numeric',minute:'2-digit'});
+    const pru=parseFloat(($('precio').value||'').replace(',','.'));
+    const item={id:Date.now()+''+Math.random().toString(36).slice(2,6),medida:w+'/'+h+' R'+r,marca:$('marca').value.trim(),color:$('color').value.trim(),cant:qty,precio:pru>0?Math.round(pru*100)/100:null,monto:Math.round(monto*100)/100,pago:pay,hora};
+    (data[day()]=data[day()]||[]).push(item);
+    persist();
+    ['w','h','r','marca','color','monto','precio'].forEach(id=>$(id).value='');
+    qty=1;$('q').value=1;pay=null;montoManual=false;$('auto').textContent='se calcula solo';
+    $('pay').querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed','false'));
+    render(); flash('Venta guardada.',true); $('w').focus();
+  });
+
+  function summary(){
+    const {t,l,n,by}=totals();
+    const lines=['*Eurollantas – '+($('suc').value||'Sucursal')+'*','Ventas del '+fmtDay(day()),''];
+    sales().forEach((x,i)=>lines.push((i+1)+'. '+x.medida+' '+[x.marca,x.color].filter(Boolean).join(' ')+' – '+x.hora+' – ('+x.cant+(x.precio?' x '+money(x.precio):'')+') '+money(x.monto)+' '+x.pago));
+    lines.push('','Llantas: '+l+' | Ventas: '+n);
+    METHODS.forEach(m=>{ if(by[m]) lines.push(m+': '+money(by[m])); });
+    lines.push('*Total: '+money(t)+'*');
+    const tr=trash();
+    if(tr.length){
+      lines.push('','⚠️ Ventas borradas ('+tr.length+'):');
+      tr.forEach(x=>lines.push('- '+x.medida+' '+[x.marca,x.color].filter(Boolean).join(' ')+' – anotada '+x.hora+', borrada '+x.borrada+' – ('+x.cant+') '+money(x.monto)+' '+x.pago));
+    }
+    return lines.join('\n');
+  }
+  async function copy(){
+    const txt=summary();
+    try{ await navigator.clipboard.writeText(txt); flash('Resumen copiado. Pégalo en WhatsApp.',true); }
+    catch(e){ const ta=document.createElement('textarea'); ta.value=txt; document.body.appendChild(ta); ta.select(); try{document.execCommand('copy'); flash('Resumen copiado. Pégalo en WhatsApp.',true);}catch(_){flash('No se pudo copiar el resumen.');} ta.remove(); }
+  }
+  function drawSummary(){
+    const S=sales(), tr=trash(), {t,l,n,by}=totals();
+    const W=820, PAD=44, rowH=54, dark=document.documentElement.getAttribute('data-theme')==='dark';
+    let H = 205 + (S.length? S.length*rowH : 40) + 50 + 4*38 + 106 + (tr.length? 32+tr.length*30 : 0) + 34;
+    const c=document.createElement('canvas'), dpr=2;
+    c.width=W*dpr; c.height=H*dpr;
+    const g=c.getContext('2d'); g.scale(dpr,dpr);
+    const ink='#16181B', soft='#6B7178', line='#DEE2E6', yellow='#F2C230';
+    g.fillStyle='#FFFFFF'; g.fillRect(0,0,W,H);
+    // banda superior
+    g.fillStyle=ink; g.fillRect(0,0,W,150);
+    g.fillStyle=yellow; g.fillRect(0,150,W,6);
+    g.fillStyle='#FFFFFF'; g.font='700 40px Barlow Condensed, Arial';
+    g.fillText('EUROLLANTAS', PAD, 62);
+    g.font='600 26px Barlow Condensed, Arial'; g.fillStyle=yellow;
+    g.fillText(($('suc').value||'Sucursal').toUpperCase(), PAD, 97);
+    g.font='400 20px Barlow, Arial'; g.fillStyle='rgba(255,255,255,.75)';
+    g.fillText('Ventas del '+fmtDay(day()), PAD, 128);
+    // total grande a la derecha
+    g.textAlign='right'; g.fillStyle='#FFFFFF'; g.font='700 52px Barlow Condensed, Arial';
+    g.fillText(money(t), W-PAD, 80);
+    g.font='400 19px Barlow, Arial'; g.fillStyle='rgba(255,255,255,.75)';
+    g.fillText(l+(l===1?' llanta':' llantas')+' · '+n+(n===1?' venta':' ventas'), W-PAD, 110);
+    g.textAlign='left';
+    let y=205;
+    if(!S.length){ g.fillStyle=soft; g.font='400 22px Barlow, Arial'; g.fillText('Sin ventas registradas este día.', PAD, y); y+=40; }
+    S.forEach((x,i)=>{
+      if(i%2){ g.fillStyle='#F5F6F7'; g.fillRect(PAD-12,y-30,W-2*(PAD-12),rowH); }
+      g.fillStyle=soft; g.font='500 19px Barlow, Arial'; g.fillText(String(i+1).padStart(2,'0'), PAD, y);
+      g.fillStyle=ink; g.font='700 26px Barlow Condensed, Arial'; g.fillText(x.medida, PAD+42, y);
+      g.fillStyle=soft; g.font='400 18px Barlow, Arial';
+      const det=[[x.marca,x.color].filter(Boolean).join(' '), x.hora, x.pago].filter(Boolean).join('  ·  ');
+      g.fillText(det, PAD+42, y+22);
+      g.textAlign='right'; g.fillStyle=ink; g.font='700 27px Barlow Condensed, Arial';
+      g.fillText(money(x.monto), W-PAD, y);
+      g.fillStyle=soft; g.font='400 17px Barlow, Arial';
+      g.fillText(x.cant+(x.precio? ' x '+money(x.precio) : ' und'), W-PAD, y+22);
+      g.textAlign='left'; y+=rowH;
+    });
+    y+=14; g.strokeStyle=line; g.lineWidth=1;
+    g.beginPath(); g.moveTo(PAD,y); g.lineTo(W-PAD,y); g.stroke(); y+=36;
+    METHODS.forEach(m=>{
+      g.fillStyle=by[m]?ink:soft; g.font=(by[m]?'600':'400')+' 21px Barlow, Arial';
+      g.fillText(m, PAD, y);
+      g.textAlign='right'; g.font=(by[m]?'700':'400')+' 24px Barlow Condensed, Arial';
+      g.fillText(money(by[m]||0), W-PAD, y); g.textAlign='left'; y+=38;
+    });
+    y+=6; g.fillStyle=ink; g.fillRect(PAD-12,y-6,W-2*(PAD-12),66);
+    g.fillStyle='#FFFFFF'; g.font='600 24px Barlow Condensed, Arial'; g.fillText('TOTAL DEL DÍA', PAD+4, y+38);
+    g.textAlign='right'; g.font='700 40px Barlow Condensed, Arial'; g.fillText(money(t), W-PAD-4, y+40);
+    g.textAlign='left'; y+=100;
+    if(tr.length){
+      g.fillStyle='#C8372D'; g.font='600 20px Barlow, Arial';
+      g.fillText('Ventas borradas ('+tr.length+')', PAD, y); y+=32;
+      g.font='400 18px Barlow, Arial'; g.fillStyle=soft;
+      tr.forEach(x=>{ g.fillText(x.medida+'  ·  anotada '+x.hora+'  ·  borrada '+x.borrada+'  ·  '+money(x.monto), PAD, y); y+=30; });
+    }
+    return c;
+  }
+  async function shareImage(){
+    if(!sales().length && !trash().length){ flash('No hay ventas para enviar este día.'); return; }
+    let canvas; try{ canvas=drawSummary(); }catch(e){ flash('No se pudo crear la imagen. Usa Copiar resumen.'); return; }
+    const name='Eurollantas-'+($('suc').value||'sucursal').replace(/\s+/g,'-')+'-'+day()+'.png';
+    const blob=await new Promise(res=>canvas.toBlob(res,'image/png'));
+    if(!blob){ flash('No se pudo crear la imagen. Usa Copiar resumen.'); return; }
+    const file=new File([blob],name,{type:'image/png'});
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      try{ await navigator.share({files:[file]}); return; }
+      catch(e){ if(e&&e.name==='AbortError') return; }
+    }
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+    flash('Imagen guardada. Adjúntala en WhatsApp.',true);
+  }
+  $('imgBtn').onclick=shareImage;
+  $('copy').onclick=copy;
+  $('share').onclick=async()=>{
+    if(!sales().length){ flash('No hay ventas para enviar este día.'); return; }
+    if(navigator.share){ try{ await navigator.share({text:summary()}); return; }catch(e){ if(e&&e.name==='AbortError') return; } }
+    copy();
+  };
+  try{ const sv=localStorage.getItem(KEY+'-suc'); if(sv) $('suc').value=sv; }catch(e){}
+  $('suc').addEventListener('change',()=>{ try{ localStorage.setItem(KEY+'-suc',$('suc').value); }catch(e){} });
+  $('day').addEventListener('change',render);
+  render();
+})();
+</script>
+</body>
+</html>
