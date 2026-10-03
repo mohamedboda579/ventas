@@ -82,6 +82,15 @@ details .list{margin-top:6px}
 .actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px}
 .actions .primary{grid-column:1/-1;background:var(--yellow);border-color:var(--yellow);color:var(--yellowInk);font-weight:700}
 .actions button{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:12px;padding:12px;font:600 16px Barlow,sans-serif}
+.taxline{opacity:.75;font-size:14px;margin-top:2px;font-variant-numeric:tabular-nums}
+.taxline:empty{display:none}
+.tax{margin-top:10px;background:var(--field);border-radius:12px;padding:10px}
+.tax .calc{display:flex;justify-content:space-between;gap:4px 10px;flex-wrap:wrap;font-size:14px;color:var(--soft)}
+.tax .calc b{font:700 19px "Barlow Condensed",sans-serif;color:var(--ink);font-variant-numeric:tabular-nums;margin-left:3px}
+.detail{margin-top:14px;display:flex;flex-direction:column;gap:6px}
+.detail .dr{display:flex;justify-content:space-between;align-items:baseline;gap:10px;color:var(--soft)}
+.detail .dr b{font:700 22px "Barlow Condensed",sans-serif;color:var(--ink);font-variant-numeric:tabular-nums}
+.detail .dr.tot{border-top:1px solid var(--line);padding-top:8px;color:var(--ink);font-weight:600}
 button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--yellow);outline-offset:2px}
 </style>
 </head>
@@ -104,6 +113,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
   <section class="total" aria-live="polite">
     <div class="big cond" id="tTotal">$0.00</div>
     <div class="sub" id="tSub">0 llantas · 0 ventas</div>
+    <div class="taxline" id="tTax"></div>
     <div class="methods" id="tMethods"></div>
   </section>
 
@@ -146,8 +156,10 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
       </div>
     </div>
 
-    <label class="l" for="monto">Monto total <span id="auto">se calcula solo</span></label>
+    <label class="l" for="monto">Subtotal sin ITBMS <span id="auto">se calcula solo</span></label>
     <div class="money big"><input class="t" id="monto" inputmode="decimal" placeholder="0.00"></div>
+
+    <div class="tax"><div class="calc" id="calc"></div></div>
 
     <label class="l">Forma de pago</label>
     <div class="pay" id="pay">
@@ -163,6 +175,12 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
 
   <h2>Ventas de hoy <span id="cnt"></span></h2>
   <div class="list" id="list"></div>
+
+  <section class="card detail" id="detail" hidden aria-label="Detalle de impuestos">
+    <div class="dr"><span>Subtotal (sin impuesto)</span><b id="dSub">$0.00</b></div>
+    <div class="dr"><span>ITBMS 7% cobrado</span><b id="dTax">$0.00</b></div>
+    <div class="dr tot"><span>Total vendido</span><b id="dTot">$0.00</b></div>
+  </section>
 
   <details id="trashWrap" hidden>
     <summary>Papelera (<span id="trashCnt">0</span>)</summary>
@@ -194,15 +212,26 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
   const money=n=>'$'+(Number(n)||0).toFixed(2);
   const fmtDay=s=>{const [y,m,d]=s.split('-');return d+'/'+m+'/'+y;};
 
+  const RATE=7; /* ITBMS fijo 7%, se suma automáticamente a todas las ventas */
+  const r2=n=>Math.round(n*100)/100;
+  function taxOf(sub){ const base=r2(sub); const itbms=r2(base*RATE/100); return {base,itbms,total:r2(base+itbms)}; }
+  function preview(){
+    const e=parseFloat(($('monto').value||'').replace(',','.'));
+    if(e>0){ const c=taxOf(e); $('calc').innerHTML='<span>Subtotal<b>'+money(c.base)+'</b></span><span>ITBMS '+RATE+'%<b>'+money(c.itbms)+'</b></span><span>Total<b>'+money(c.total)+'</b></span>'; }
+    else $('calc').innerHTML='<span>ITBMS '+RATE+'% se suma automáticamente</span>';
+  }
+
   let qty=1, pay=null, montoManual=false;
   function calc(){
-    if(montoManual) return;
-    const pr=parseFloat(($('precio').value||'').replace(',','.'));
-    $('monto').value = pr>0 ? (pr*qty).toFixed(2) : '';
-    $('auto').textContent = pr>0 ? 'se calcula solo' : 'se calcula solo';
+    if(!montoManual){
+      const pr=parseFloat(($('precio').value||'').replace(',','.'));
+      $('monto').value = pr>0 ? (pr*qty).toFixed(2) : '';
+      $('auto').textContent = 'se calcula solo';
+    }
+    preview();
   }
   $('precio').addEventListener('input',()=>{montoManual=false;calc();});
-  $('monto').addEventListener('input',()=>{montoManual=true;$('auto').textContent='escrito a mano';});
+  $('monto').addEventListener('input',()=>{montoManual=true;$('auto').textContent='escrito a mano';preview();});
   $('minus').onclick=()=>{qty=Math.max(1,qty-1);$('q').value=qty;calc();};
   $('plus').onclick=()=>{qty=Math.min(20,qty+1);$('q').value=qty;calc();};
   $('pay').querySelectorAll('button').forEach(b=>b.onclick=()=>{
@@ -233,13 +262,16 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
 
   function totals(){
     const s=sales(); const by={}; METHODS.forEach(m=>by[m]=0);
-    let t=0,l=0; s.forEach(x=>{t+=x.monto;l+=x.cant;by[x.pago]=(by[x.pago]||0)+x.monto;});
-    return {t,l,n:s.length,by};
+    let t=0,l=0,tx=0; s.forEach(x=>{t+=x.monto;tx+=(x.itbms||0);l+=x.cant;by[x.pago]=(by[x.pago]||0)+x.monto;});
+    return {t,l,n:s.length,by,tx,sb:t-tx};
   }
 
   function render(){
-    const {t,l,n,by}=totals();
+    const {t,l,n,by,tx,sb}=totals();
     $('tTotal').textContent=money(t);
+    $('tTax').textContent=tx>0?'Subtotal '+money(sb)+' · ITBMS '+money(tx):'';
+    $('detail').hidden=!n;
+    $('dSub').textContent=money(sb); $('dTax').textContent=money(tx); $('dTot').textContent=money(t);
     $('tSub').textContent=l+(l===1?' llanta':' llantas')+' · '+n+(n===1?' venta':' ventas');
     $('tMethods').innerHTML=METHODS.map(m=>'<div><small>'+m+'</small><b>'+money(by[m])+'</b></div>').join('');
     const isToday=day()===today();
@@ -253,7 +285,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
       const m=document.createElement('div'); m.className='m'; m.textContent=x.medida+'  ×'+x.cant;
       const a=document.createElement('div'); a.className='a'; a.textContent=money(x.monto);
       const d=document.createElement('div'); d.className='d'; d.textContent=[x.marca,x.color].filter(Boolean).join(' · ')||'Sin vehículo';
-      const p=document.createElement('div'); p.className='p'; p.textContent=x.hora+' · '+x.pago;
+      const p=document.createElement('div'); p.className='p'; p.textContent=x.hora+' · '+x.pago+(x.itbms?' · ITBMS '+money(x.itbms):'');
       const xb=document.createElement('div'); xb.className='x';
       const del=document.createElement('button'); del.type='button'; del.textContent='Borrar';
       del.onclick=()=>{ if(confirm('¿Borrar la venta '+x.medida+' de '+money(x.monto)+'? Quedará en la papelera.')){ x.borrada=new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true}).toLowerCase().replace('am','a.m.').replace('pm','p.m.'); persist(); render(); flash('Venta enviada a la papelera.',true); } };
@@ -292,21 +324,23 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
     const now=new Date();
     const hora=now.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true}).toLowerCase().replace('am','a.m.').replace('pm','p.m.');
     const pru=parseFloat(($('precio').value||'').replace(',','.'));
-    const item={id:Date.now()+''+Math.random().toString(36).slice(2,6),medida:w+'/'+h+' R'+r,marca:$('marca').value.trim(),color:$('color').value.trim(),cant:qty,precio:pru>0?Math.round(pru*100)/100:null,monto:Math.round(monto*100)/100,pago:pay,hora};
+    const c=taxOf(monto);
+    const item={id:Date.now()+''+Math.random().toString(36).slice(2,6),medida:w+'/'+h+' R'+r,marca:$('marca').value.trim(),color:$('color').value.trim(),cant:qty,precio:pru>0?Math.round(pru*100)/100:null,monto:c.total,base:c.base,itbms:c.itbms,tasa:RATE,pago:pay,hora};
     (data[day()]=data[day()]||[]).push(item);
     persist();
     ['w','h','r','marca','color','monto','precio'].forEach(id=>$(id).value='');
     qty=1;$('q').value=1;pay=null;montoManual=false;$('auto').textContent='se calcula solo';
     $('pay').querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed','false'));
-    render(); flash('Venta guardada.',true); $('w').focus();
+    render(); preview(); flash('Venta guardada.',true); $('w').focus();
   });
 
   function summary(){
-    const {t,l,n,by}=totals();
+    const {t,l,n,by,tx,sb}=totals();
     const lines=['*Eurollantas – '+($('suc').value||'Sucursal')+'*','Ventas del '+fmtDay(day()),''];
     sales().forEach((x,i)=>lines.push((i+1)+'. '+x.medida+' '+[x.marca,x.color].filter(Boolean).join(' ')+' – '+x.hora+' – ('+x.cant+(x.precio?' x '+money(x.precio):'')+') '+money(x.monto)+' '+x.pago));
     lines.push('','Llantas: '+l+' | Ventas: '+n);
     METHODS.forEach(m=>{ if(by[m]) lines.push(m+': '+money(by[m])); });
+    if(tx>0){ lines.push('Subtotal: '+money(sb)); lines.push('ITBMS '+RATE+'%: '+money(tx)); }
     lines.push('*Total: '+money(t)+'*');
     const tr=trash();
     if(tr.length){
@@ -321,9 +355,9 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
     catch(e){ const ta=document.createElement('textarea'); ta.value=txt; document.body.appendChild(ta); ta.select(); try{document.execCommand('copy'); flash('Resumen copiado. Pégalo en WhatsApp.',true);}catch(_){flash('No se pudo copiar el resumen.');} ta.remove(); }
   }
   function drawSummary(){
-    const S=sales(), tr=trash(), {t,l,n,by}=totals();
+    const S=sales(), tr=trash(), {t,l,n,by,tx,sb}=totals();
     const W=820, PAD=44, rowH=54, dark=document.documentElement.getAttribute('data-theme')==='dark';
-    let H = 205 + (S.length? S.length*rowH : 40) + 50 + 4*38 + 106 + (tr.length? 32+tr.length*30 : 0) + 34;
+    let H = 205 + (S.length? S.length*rowH : 40) + 50 + 4*38 + (tx>0? 2*38+14 : 0) + 106 + (tr.length? 32+tr.length*30 : 0) + 34;
     const c=document.createElement('canvas'), dpr=2;
     c.width=W*dpr; c.height=H*dpr;
     const g=c.getContext('2d'); g.scale(dpr,dpr);
@@ -367,6 +401,14 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
       g.textAlign='right'; g.font=(by[m]?'700':'400')+' 24px Barlow Condensed, Arial';
       g.fillText(money(by[m]||0), W-PAD, y); g.textAlign='left'; y+=38;
     });
+    if(tx>0){
+      y-=14; g.strokeStyle=line; g.lineWidth=1; g.beginPath(); g.moveTo(PAD,y); g.lineTo(W-PAD,y); g.stroke(); y+=28;
+      [['Subtotal (sin ITBMS)',sb],['ITBMS '+RATE+'%',tx]].forEach(([lb,v])=>{
+        g.fillStyle=ink; g.font='600 21px Barlow, Arial'; g.fillText(lb, PAD, y);
+        g.textAlign='right'; g.font='700 24px Barlow Condensed, Arial'; g.fillText(money(v), W-PAD, y);
+        g.textAlign='left'; y+=38;
+      });
+    }
     y+=6; g.fillStyle=ink; g.fillRect(PAD-12,y-6,W-2*(PAD-12),66);
     g.fillStyle='#FFFFFF'; g.font='600 24px Barlow Condensed, Arial'; g.fillText('TOTAL DEL DÍA', PAD+4, y+38);
     g.textAlign='right'; g.font='700 40px Barlow Condensed, Arial'; g.fillText(money(t), W-PAD-4, y+40);
@@ -405,7 +447,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
   try{ const sv=localStorage.getItem(KEY+'-suc'); if(sv) $('suc').value=sv; }catch(e){}
   $('suc').addEventListener('change',()=>{ try{ localStorage.setItem(KEY+'-suc',$('suc').value); }catch(e){} });
   $('day').addEventListener('change',render);
-  render();
+  render(); preview();
 })();
 </script>
 </body>
