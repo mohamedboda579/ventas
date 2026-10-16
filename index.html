@@ -55,6 +55,8 @@ header{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;
 .dif.ok{background:rgba(46,160,67,.16);color:var(--ink)}
 .dif.bad{background:rgba(200,55,45,.16);color:var(--ink)}
 [hidden]{display:none!important}
+.syncst{font-size:13px;color:var(--soft);margin:-6px 4px 10px;min-height:16px}
+.syncst.bad{color:var(--red)}
 header h1{margin:0;font:700 30px/1 "Barlow Condensed",sans-serif;letter-spacing:.3px}
 header input[type=date]{font:600 16px Barlow,sans-serif;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
 .suc{margin-bottom:12px;font-weight:600;background:var(--card);border:1px solid var(--line)}
@@ -141,6 +143,8 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
     <option>Betania</option>
     <option>Chorrera</option>
   </select>
+
+  <div class="syncst" id="syncSt" hidden></div>
 
   <section class="total" aria-live="polite">
     <div class="big cond" id="tTotal">$0.00</div>
@@ -268,7 +272,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
   const $=id=>document.getElementById(id);
   let data={};
   try{ data=JSON.parse(localStorage.getItem(KEY)||'{}')||{}; }catch(e){ data={}; }
-  const persist=()=>{ try{ localStorage.setItem(KEY,JSON.stringify(data)); }catch(e){ flash('No se pudo guardar en este teléfono. Revisa el espacio disponible.'); } };
+  const persist=()=>{ try{ localStorage.setItem(KEY,JSON.stringify(data)); }catch(e){ flash('No se pudo guardar en este teléfono. Revisa el espacio disponible.'); } queueSync(); };
 
   const today=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
   $('day').value=today();
@@ -548,7 +552,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
   const XKEY='eurollantas-ventas-extras';
   let ex={};
   try{ ex=JSON.parse(localStorage.getItem(XKEY)||'{}')||{}; }catch(e){ ex={}; }
-  const saveEx=()=>{ try{ localStorage.setItem(XKEY,JSON.stringify(ex)); }catch(_){ flash('No se pudo guardar en este teléfono.'); } };
+  const saveEx=()=>{ try{ localStorage.setItem(XKEY,JSON.stringify(ex)); }catch(_){ flash('No se pudo guardar en este teléfono.'); } queueSync(); };
   const num=v=>{const n=parseFloat(String(v==null?'':v).replace(',','.'));return n>0?n:0;};
   const exDay=()=>{ const e=ex[day()]=ex[day()]||{}; if(!Array.isArray(e.gastos)) e.gastos=[]; return e; };
   const gastosTot=e=>r2((Array.isArray(e.gastos)?e.gastos:[]).reduce((a,g)=>a+num(g.m),0));
@@ -599,6 +603,56 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
   };
   $('gM').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); $('gAdd').click(); } });
   $('gC').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); $('gM').focus(); } });
+
+  /* ---- Envío en vivo a Google Sheets (apagado mientras SYNC_URL esté vacío) ---- */
+  const SYNC_URL='';
+  const SYNC_TOKEN='XuukiOSer0GDMCmIvnfgamq1';
+  const SKEY=KEY+'-sync';
+  let syncT=null, flushing=false;
+  const getQ=()=>{ try{ return JSON.parse(localStorage.getItem(SKEY)||'{}')||{}; }catch(e){ return {}; } };
+  const setQ=q=>{ try{ localStorage.setItem(SKEY,JSON.stringify(q)); }catch(e){} };
+  function setSt(t,bad){ const s=$('syncSt'); if(!s) return; s.hidden=!SYNC_URL; s.textContent=t; s.className='syncst'+(bad?' bad':''); }
+  function snapshotFor(d,suc){
+    const all=data[d]||[], act=all.filter(x=>!x.borrada);
+    const by={Yappy:0,Punto:0,Efectivo:0,Otro:0}; let t=0,tx=0,l=0;
+    act.forEach(x=>{ t+=x.monto; tx+=(x.itbms||0); l+=x.cant; by[x.pago]=(by[x.pago]||0)+x.monto; });
+    const e=ex[d]||{}, g=Array.isArray(e.gastos)?e.gastos:[];
+    const ll=num(e.llantero), en=num(e.encargado), gt=r2(g.reduce((a,x)=>a+num(x.m),0));
+    const cont=(e.contado===''||e.contado==null)?null:num(e.contado);
+    const esp=r2((by.Efectivo||0)+ll-gt-en);
+    return {token:SYNC_TOKEN,fecha:d,sucursal:suc,
+      ventas:all.map(x=>({id:x.id,hora:x.hora,medida:x.medida,marca:x.marca||'',color:x.color||'',cant:x.cant,precio:x.precio==null?null:x.precio,base:x.base,itbms:x.itbms||0,monto:x.monto,pago:x.pago,borrada:!!x.borrada})),
+      cierre:{llantas:l,ventas:act.length,efectivo:r2(by.Efectivo),yappy:r2(by.Yappy),punto:r2(by.Punto),otro:r2(by.Otro),subtotal:r2(t-tx),itbms:r2(tx),total:r2(t),llantero:ll,gastos:gt,encargado:en,neto:r2(t+ll-gt-en),esperado:esp,contado:cont,diferencia:cont==null?null:r2(cont-esp),detalleGastos:g.map(x=>(x.c||'Sin concepto')+' $'+num(x.m).toFixed(2)).join('; ')}};
+  }
+  function queueSync(){
+    if(!SYNC_URL) return;
+    const suc=$('suc').value; if(!suc){ setSt('Elige la sucursal para enviar las ventas.',true); return; }
+    const q=getQ(); q[day()+'|'+suc]=Date.now(); setQ(q);
+    setSt('Enviando…'); clearTimeout(syncT); syncT=setTimeout(flushSync,1500);
+  }
+  async function flushSync(){
+    if(!SYNC_URL||flushing) return;
+    let q=getQ(), keys=Object.keys(q); if(!keys.length){ return; }
+    flushing=true;
+    try{
+      for(const k of keys){
+        const v0=q[k], i=k.indexOf('|'), d=k.slice(0,i), suc=k.slice(i+1);
+        await fetch(SYNC_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(snapshotFor(d,suc))});
+        const now=getQ(); if(now[k]===v0){ delete now[k]; setQ(now); }
+      }
+      const rest=Object.keys(getQ()).length;
+      if(rest){ setSt('Enviando…'); clearTimeout(syncT); syncT=setTimeout(flushSync,800); }
+      else setSt('✓ Enviado '+new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true}).toLowerCase().replace('am','a.m.').replace('pm','p.m.'));
+    }catch(e){
+      setSt('Sin conexión: se enviará cuando haya internet.',true);
+    }finally{ flushing=false; }
+  }
+  if(SYNC_URL){
+    window.addEventListener('online',flushSync);
+    setInterval(flushSync,60000);
+    $('suc').addEventListener('change',queueSync);
+    setTimeout(()=>{ if(Object.keys(getQ()).length) flushSync(); else setSt('Envío en vivo activo.'); },2000);
+  }
 
   $('day').addEventListener('change',()=>{render();loadEx();});
   render(); preview(); loadEx();
