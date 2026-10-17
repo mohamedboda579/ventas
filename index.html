@@ -144,8 +144,6 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
     <option>Chorrera</option>
   </select>
 
-  <div class="syncst" id="syncSt" hidden></div>
-
   <section class="total" aria-live="polite">
     <div class="big cond" id="tTotal">$0.00</div>
     <div class="sub" id="tSub">0 llantas · 0 ventas</div>
@@ -611,7 +609,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
   let syncT=null, flushing=false;
   const getQ=()=>{ try{ return JSON.parse(localStorage.getItem(SKEY)||'{}')||{}; }catch(e){ return {}; } };
   const setQ=q=>{ try{ localStorage.setItem(SKEY,JSON.stringify(q)); }catch(e){} };
-  function setSt(t,bad){ const s=$('syncSt'); if(!s) return; s.hidden=!SYNC_URL; s.textContent=t; s.className='syncst'+(bad?' bad':''); }
+  function setSt(){ /* el envío es silencioso: no se muestra nada en pantalla */ }
   function snapshotFor(d,suc){
     const all=data[d]||[], act=all.filter(x=>!x.borrada);
     const by={Yappy:0,Punto:0,Efectivo:0,Otro:0}; let t=0,tx=0,l=0;
