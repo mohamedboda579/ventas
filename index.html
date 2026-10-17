@@ -92,6 +92,12 @@ input.t:focus,select.t:focus{border-color:var(--yellow)}
 .pay{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
 .pay button{border:2px solid var(--line);background:transparent;color:var(--ink);border-radius:12px;padding:12px 2px;font:600 16px Barlow,sans-serif}
 .pay button[aria-pressed=true]{background:var(--yellow);border-color:var(--yellow);color:var(--yellowInk)}
+.splitbtn{margin-top:8px;width:100%;border:2px dashed var(--line);background:transparent;color:var(--ink);border-radius:12px;padding:10px;font:600 15px Barlow,sans-serif}
+.splitbtn[aria-pressed=true]{border-style:solid;background:var(--yellow);border-color:var(--yellow);color:var(--yellowInk)}
+.split{margin-top:8px;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.split label{font:600 14px Barlow,sans-serif;display:block;margin-bottom:2px}
+.splitinfo{grid-column:1/-1;font:600 16px Barlow,sans-serif;text-align:center;padding:6px 0}
+.splitinfo.ok{color:#1E8E3E}.splitinfo.bad{color:#C0392B}
 .save{width:100%;margin-top:16px;border:0;border-radius:14px;background:var(--yellow);color:var(--yellowInk);font:700 22px "Barlow Condensed",sans-serif;padding:15px;letter-spacing:.3px}
 .save:active{transform:scale(.99)}
 .msg{min-height:20px;font-size:14px;color:var(--red);margin-top:8px;text-align:center}
@@ -202,6 +208,14 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
       <button type="button" data-v="Efectivo">Efectivo</button>
       <button type="button" data-v="Otro">Otro</button>
     </div>
+    <button type="button" class="splitbtn" id="splitBtn" aria-pressed="false">Dividir pago (mitad y mitad)</button>
+    <div class="split" id="split" hidden>
+      <div><label for="sp_Yappy">Yappy</label><div class="money"><input class="t" id="sp_Yappy" inputmode="decimal" placeholder="0.00"></div></div>
+      <div><label for="sp_Punto">Punto</label><div class="money"><input class="t" id="sp_Punto" inputmode="decimal" placeholder="0.00"></div></div>
+      <div><label for="sp_Efectivo">Efectivo</label><div class="money"><input class="t" id="sp_Efectivo" inputmode="decimal" placeholder="0.00"></div></div>
+      <div><label for="sp_Otro">Otro</label><div class="money"><input class="t" id="sp_Otro" inputmode="decimal" placeholder="0.00"></div></div>
+      <div class="splitinfo" id="splitInfo"></div>
+    </div>
 
     <button class="save" type="submit">Guardar venta</button>
     <div class="msg" id="msg"></div>
@@ -267,6 +281,8 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
 (function(){
   const KEY='eurollantas-ventas-v1';
   const METHODS=['Yappy','Punto','Efectivo','Otro'];
+  const splits=x=>(x.pagos&&typeof x.pagos==='object')?x.pagos:{[x.pago]:x.monto};
+  const payLabel=x=>{ if(!x.pagos) return x.pago; return METHODS.filter(m=>x.pagos[m]>0).map(m=>m+' '+money(x.pagos[m])).join(' + '); };
   const $=id=>document.getElementById(id);
   let data={};
   try{ data=JSON.parse(localStorage.getItem(KEY)||'{}')||{}; }catch(e){ data={}; }
@@ -304,9 +320,34 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
   $('minus').onclick=()=>{qty=Math.max(1,qty-1);$('q').value=qty;calc();};
   $('plus').onclick=()=>{qty=Math.min(20,qty+1);$('q').value=qty;calc();};
   $('pay').querySelectorAll('button').forEach(b=>b.onclick=()=>{
-    pay=b.dataset.v;
+    pay=b.dataset.v; setSplit(false);
     $('pay').querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x===b));
   });
+  /* Pago dividido: una venta pagada con varios métodos */
+  let splitOn=false;
+  const spVals=()=>{ const o={}; METHODS.forEach(m=>{ const v=num($('sp_'+m).value); if(v>0) o[m]=r2(v); }); return o; };
+  const spSum=o=>r2(Object.keys(o).reduce((a,m)=>a+o[m],0));
+  const spTotal=()=>{ const e=parseFloat(($('monto').value||'').replace(',','.')); return e>0?taxOf(e).total:0; };
+  function spInfo(){
+    const el=$('splitInfo'), tot=spTotal(), sum=spSum(spVals());
+    if(!(tot>0)){ el.className='splitinfo'; el.textContent='Primero escribe el monto de la venta.'; return; }
+    const d=r2(tot-sum);
+    if(d===0&&sum>0){ el.className='splitinfo ok'; el.textContent='✓ Cuadra: '+money(sum)+' de '+money(tot); }
+    else { el.className='splitinfo bad'; el.textContent=(d>0?'Falta ':'Sobra ')+money(Math.abs(d))+' · Total '+money(tot); }
+  }
+  function setSplit(on){
+    splitOn=on; $('split').hidden=!on;
+    $('splitBtn').setAttribute('aria-pressed',on);
+    if(on){ pay=null; $('pay').querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed','false')); spInfo(); }
+    else METHODS.forEach(m=>$('sp_'+m).value='');
+  }
+  $('splitBtn').onclick=()=>setSplit(!splitOn);
+  METHODS.forEach(m=>{
+    const i=$('sp_'+m);
+    i.addEventListener('input',spInfo);
+    i.addEventListener('focus',()=>{ if(!i.value.trim()){ const d=r2(spTotal()-spSum(spVals())); if(d>0&&spSum(spVals())>0){ i.value=d.toFixed(2); spInfo(); } } try{i.select();}catch(_){} });
+  });
+  $('monto').addEventListener('input',()=>{ if(splitOn) spInfo(); });
   [['w',3,'h'],['h',2,'r'],['r',2,'marca']].forEach(([id,len,next])=>{
     $(id).addEventListener('input',e=>{
       e.target.value=e.target.value.replace(/\D/g,'');
@@ -331,7 +372,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
 
   function totals(){
     const s=sales(); const by={}; METHODS.forEach(m=>by[m]=0);
-    let t=0,l=0,tx=0; s.forEach(x=>{t+=x.monto;tx+=(x.itbms||0);l+=x.cant;by[x.pago]=(by[x.pago]||0)+x.monto;});
+    let t=0,l=0,tx=0; s.forEach(x=>{t+=x.monto;tx+=(x.itbms||0);l+=x.cant;const sp=splits(x);Object.keys(sp).forEach(m=>{by[m]=r2((by[m]||0)+sp[m]);});});
     return {t,l,n:s.length,by,tx,sb:t-tx};
   }
 
@@ -354,7 +395,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
       const m=document.createElement('div'); m.className='m'; m.textContent=x.medida+'  ×'+x.cant;
       const a=document.createElement('div'); a.className='a'; a.textContent=money(x.monto);
       const d=document.createElement('div'); d.className='d'; d.textContent=[x.marca,x.color].filter(Boolean).join(' · ')||'Sin vehículo';
-      const p=document.createElement('div'); p.className='p'; p.textContent=x.hora+' · '+x.pago+(x.itbms?' · ITBMS '+money(x.itbms):'');
+      const p=document.createElement('div'); p.className='p'; p.textContent=x.hora+' · '+payLabel(x)+(x.itbms?' · ITBMS '+money(x.itbms):'');
       const xb=document.createElement('div'); xb.className='x';
       const del=document.createElement('button'); del.type='button'; del.textContent='Borrar';
       del.onclick=()=>{ if(confirm('¿Borrar la venta '+x.medida+' de '+money(x.monto)+'? Quedará en la papelera.')){ x.borrada=new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true}).toLowerCase().replace('am','a.m.').replace('pm','p.m.'); persist(); render(); flash('Venta enviada a la papelera.',true); } };
@@ -390,16 +431,23 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
     if(!w||!h||!r){ flash('Completa la medida: ancho, perfil y rin.'); return; }
     const monto=parseFloat(($('monto').value||'').replace(',','.'));
     if(!(monto>0)){ flash('Escribe el monto de la venta.'); $('monto').focus(); return; }
-    if(!pay){ flash('Elige la forma de pago.'); return; }
+    let pagos=null;
+    if(splitOn){
+      const sv=spVals(), tot=taxOf(monto).total, ks=Object.keys(sv);
+      if(ks.length<2){ flash('Para dividir, escribe el monto en dos formas de pago.'); return; }
+      if(spSum(sv)!==tot){ flash('Los pagos deben sumar '+money(tot)+'.'); return; }
+      pagos=sv;
+    } else if(!pay){ flash('Elige la forma de pago.'); return; }
     const now=new Date();
     const hora=now.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true}).toLowerCase().replace('am','a.m.').replace('pm','p.m.');
     const pru=parseFloat(($('precio').value||'').replace(',','.'));
     const c=taxOf(monto);
-    const item={id:Date.now()+''+Math.random().toString(36).slice(2,6),medida:w+'/'+h+' R'+r,marca:$('marca').value.trim(),color:$('color').value.trim(),cant:qty,precio:pru>0?Math.round(pru*100)/100:null,monto:c.total,base:c.base,itbms:c.itbms,tasa:RATE,pago:pay,hora};
+    const item={id:Date.now()+''+Math.random().toString(36).slice(2,6),medida:w+'/'+h+' R'+r,marca:$('marca').value.trim(),color:$('color').value.trim(),cant:qty,precio:pru>0?Math.round(pru*100)/100:null,monto:c.total,base:c.base,itbms:c.itbms,tasa:RATE,pago:pagos?METHODS.filter(m=>pagos[m]).join(' + '):pay,hora};
+    if(pagos) item.pagos=pagos;
     (data[day()]=data[day()]||[]).push(item);
     persist();
     ['w','h','r','marca','color','monto','precio'].forEach(id=>$(id).value='');
-    qty=1;$('q').value=1;pay=null;montoManual=false;$('auto').textContent='se calcula solo';
+    qty=1;$('q').value=1;pay=null;setSplit(false);montoManual=false;$('auto').textContent='se calcula solo';
     $('pay').querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed','false'));
     render(); preview(); flash('Venta guardada.',true); $('w').focus();
   });
@@ -407,7 +455,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
   function summary(){
     const {t,l,n,by,tx,sb}=totals();
     const lines=['*Eurollantas – '+($('suc').value||'Sucursal')+'*','Ventas del '+fmtDay(day()),''];
-    sales().forEach((x,i)=>lines.push((i+1)+'. '+x.medida+' '+[x.marca,x.color].filter(Boolean).join(' ')+' – '+x.hora+' – ('+x.cant+(x.precio?' x '+money(x.precio):'')+') '+money(x.monto)+' '+x.pago));
+    sales().forEach((x,i)=>lines.push((i+1)+'. '+x.medida+' '+[x.marca,x.color].filter(Boolean).join(' ')+' – '+x.hora+' – ('+x.cant+(x.precio?' x '+money(x.precio):'')+') '+money(x.monto)+' '+payLabel(x)));
     lines.push('','Llantas: '+l+' | Ventas: '+n);
     METHODS.forEach(m=>{ if(by[m]) lines.push(m+': '+money(by[m])); });
     if(tx>0){ lines.push('Subtotal: '+money(sb)); lines.push('ITBMS '+RATE+'%: '+money(tx)); }
@@ -426,7 +474,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
     const tr=trash();
     if(tr.length){
       lines.push('','⚠️ Ventas borradas ('+tr.length+'):');
-      tr.forEach(x=>lines.push('- '+x.medida+' '+[x.marca,x.color].filter(Boolean).join(' ')+' – anotada '+x.hora+', borrada '+x.borrada+' – ('+x.cant+') '+money(x.monto)+' '+x.pago));
+      tr.forEach(x=>lines.push('- '+x.medida+' '+[x.marca,x.color].filter(Boolean).join(' ')+' – anotada '+x.hora+', borrada '+x.borrada+' – ('+x.cant+') '+money(x.monto)+' '+payLabel(x)));
     }
     return lines.join('\n');
   }
@@ -469,7 +517,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
       g.fillStyle=soft; g.font='500 19px Barlow, Arial'; g.fillText(String(i+1).padStart(2,'0'), PAD, y);
       g.fillStyle=ink; g.font='700 26px Barlow Condensed, Arial'; g.fillText(x.medida, PAD+42, y);
       g.fillStyle=soft; g.font='400 18px Barlow, Arial';
-      const det=[[x.marca,x.color].filter(Boolean).join(' '), x.hora, x.pago].filter(Boolean).join('  ·  ');
+      const det=[[x.marca,x.color].filter(Boolean).join(' '), x.hora, payLabel(x)].filter(Boolean).join('  ·  ');
       g.fillText(det, PAD+42, y+22);
       g.textAlign='right'; g.fillStyle=ink; g.font='700 27px Barlow Condensed, Arial';
       g.fillText(money(x.monto), W-PAD, y);
@@ -613,13 +661,13 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
   function snapshotFor(d,suc){
     const all=data[d]||[], act=all.filter(x=>!x.borrada);
     const by={Yappy:0,Punto:0,Efectivo:0,Otro:0}; let t=0,tx=0,l=0;
-    act.forEach(x=>{ t+=x.monto; tx+=(x.itbms||0); l+=x.cant; by[x.pago]=(by[x.pago]||0)+x.monto; });
+    act.forEach(x=>{ t+=x.monto; tx+=(x.itbms||0); l+=x.cant; const sp=splits(x); Object.keys(sp).forEach(m=>{ by[m]=(by[m]||0)+sp[m]; }); });
     const e=ex[d]||{}, g=Array.isArray(e.gastos)?e.gastos:[];
     const ll=num(e.llantero), en=num(e.encargado), gt=r2(g.reduce((a,x)=>a+num(x.m),0));
     const cont=(e.contado===''||e.contado==null)?null:num(e.contado);
     const esp=r2((by.Efectivo||0)+ll-gt-en);
     return {token:SYNC_TOKEN,fecha:d,sucursal:suc,
-      ventas:all.map(x=>({id:x.id,hora:x.hora,medida:x.medida,marca:x.marca||'',color:x.color||'',cant:x.cant,precio:x.precio==null?null:x.precio,base:x.base,itbms:x.itbms||0,monto:x.monto,pago:x.pago,borrada:!!x.borrada})),
+      ventas:all.map(x=>({id:x.id,hora:x.hora,medida:x.medida,marca:x.marca||'',color:x.color||'',cant:x.cant,precio:x.precio==null?null:x.precio,base:x.base,itbms:x.itbms||0,monto:x.monto,pago:payLabel(x),borrada:!!x.borrada})),
       cierre:{llantas:l,ventas:act.length,efectivo:r2(by.Efectivo),yappy:r2(by.Yappy),punto:r2(by.Punto),otro:r2(by.Otro),subtotal:r2(t-tx),itbms:r2(tx),total:r2(t),llantero:ll,gastos:gt,encargado:en,neto:r2(t+ll-gt-en),esperado:esp,contado:cont,diferencia:cont==null?null:r2(cont-esp),detalleGastos:g.map(x=>(x.c||'Sin concepto')+' $'+num(x.m).toFixed(2)).join('; ')}};
   }
   function queueSync(){
