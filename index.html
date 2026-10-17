@@ -98,6 +98,12 @@ input.t:focus,select.t:focus{border-color:var(--yellow)}
 .split label{font:600 14px Barlow,sans-serif;display:block;margin-bottom:2px}
 .splitinfo{grid-column:1/-1;font:600 16px Barlow,sans-serif;text-align:center;padding:6px 0}
 .splitinfo.ok{color:#1E8E3E}.splitinfo.bad{color:#C0392B}
+.devbtn{width:100%;margin-bottom:10px;border:2px dashed var(--line);background:transparent;color:var(--ink);border-radius:12px;padding:10px;font:600 15px Barlow,sans-serif}
+.devbtn[aria-pressed=true]{border-style:solid;background:var(--red);border-color:var(--red);color:#fff}
+.devbox{margin-bottom:10px;padding:10px;border:2px solid var(--red);border-radius:12px}
+.devbox label{font:600 14px Barlow,sans-serif;display:block;margin-bottom:4px}
+.devbox input{width:100%;font:500 17px Barlow,sans-serif;padding:10px;border:2px solid var(--line);border-radius:10px;background:transparent;color:var(--ink)}
+.item.dev{border-color:var(--red)}.item.dev .a{color:var(--red)}
 .save{width:100%;margin-top:16px;border:0;border-radius:14px;background:var(--yellow);color:var(--yellowInk);font:700 22px "Barlow Condensed",sans-serif;padding:15px;letter-spacing:.3px}
 .save:active{transform:scale(.99)}
 .msg{min-height:20px;font-size:14px;color:var(--red);margin-top:8px;text-align:center}
@@ -158,6 +164,11 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
   </section>
 
   <form class="card" id="f" autocomplete="off">
+    <button type="button" class="devbtn" id="devBtn" aria-pressed="false">↩ Devolución (llanta y dinero)</button>
+    <div class="devbox" id="devBox" hidden>
+      <label for="devFecha">Fecha de la venta original</label>
+      <input type="date" id="devFecha">
+    </div>
     <label class="l">Medida</label>
     <div class="size">
       <input id="w" inputmode="numeric" maxlength="3" placeholder="175" aria-label="Ancho">
@@ -201,7 +212,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
 
     <div class="tax"><div class="calc" id="calc"></div></div>
 
-    <label class="l">Forma de pago</label>
+    <label class="l" id="payL">Forma de pago</label>
     <div class="pay" id="pay">
       <button type="button" data-v="Yappy">Yappy</button>
       <button type="button" data-v="Punto">Punto</button>
@@ -217,7 +228,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
       <div class="splitinfo" id="splitInfo"></div>
     </div>
 
-    <button class="save" type="submit">Guardar venta</button>
+    <button class="save" type="submit" id="saveBtn">Guardar venta</button>
     <div class="msg" id="msg"></div>
   </form>
 
@@ -282,7 +293,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
   const KEY='eurollantas-ventas-v1';
   const METHODS=['Yappy','Punto','Efectivo','Otro'];
   const splits=x=>(x.pagos&&typeof x.pagos==='object')?x.pagos:{[x.pago]:x.monto};
-  const payLabel=x=>{ if(!x.pagos) return x.pago; return METHODS.filter(m=>x.pagos[m]>0).map(m=>m+' '+money(x.pagos[m])).join(' + '); };
+  const payLabel=x=>{ if(x.dev) return 'DEVOLUCIÓN · '+x.pago+(x.orig?' · venta del '+fmtDay(x.orig):''); if(!x.pagos) return x.pago; return METHODS.filter(m=>x.pagos[m]>0).map(m=>m+' '+money(x.pagos[m])).join(' + '); };
   const $=id=>document.getElementById(id);
   let data={};
   try{ data=JSON.parse(localStorage.getItem(KEY)||'{}')||{}; }catch(e){ data={}; }
@@ -294,7 +305,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
   const raw=()=>data[day()]||[];
   const sales=()=>raw().filter(x=>!x.borrada);
   const trash=()=>raw().filter(x=>x.borrada);
-  const money=n=>'$'+(Number(n)||0).toFixed(2);
+  const money=n=>{n=Number(n)||0;return (n<0?'−$':'$')+Math.abs(n).toFixed(2);};
   const fmtDay=s=>{const [y,m,d]=s.split('-');return d+'/'+m+'/'+y;};
 
   const RATE=7; /* ITBMS fijo 7%, se suma automáticamente a todas las ventas */
@@ -323,6 +334,17 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
     pay=b.dataset.v; setSplit(false);
     $('pay').querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x===b));
   });
+  /* Devolución: se anota hoy (cuando sale el dinero) con montos negativos */
+  let devOn=false;
+  const ymd=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  function setDev(on){
+    devOn=on; $('devBox').hidden=!on; $('devBtn').setAttribute('aria-pressed',on);
+    $('splitBtn').hidden=on; if(on) setSplit(false);
+    $('payL').textContent=on?'¿Cómo se devolvió el dinero?':'Forma de pago';
+    $('saveBtn').textContent=on?'Guardar devolución':'Guardar venta';
+    if(on){ const y=new Date(); y.setDate(y.getDate()-1); $('devFecha').value=ymd(y); pay='Yappy'; $('pay').querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x.dataset.v==='Yappy')); }
+  }
+  $('devBtn').onclick=()=>setDev(!devOn);
   /* Pago dividido: una venta pagada con varios métodos */
   let splitOn=false;
   const spVals=()=>{ const o={}; METHODS.forEach(m=>{ const v=num($('sp_'+m).value); if(v>0) o[m]=r2(v); }); return o; };
@@ -391,7 +413,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
     const s=sales();
     if(!s.length){ list.innerHTML='<div class="empty">Todavía no hay ventas este día. Anota la primera arriba.</div>'; }
     s.slice().reverse().forEach(x=>{
-      const el=document.createElement('div'); el.className='item';
+      const el=document.createElement('div'); el.className='item'+(x.dev?' dev':'');
       const m=document.createElement('div'); m.className='m'; m.textContent=x.medida+'  ×'+x.cant;
       const a=document.createElement('div'); a.className='a'; a.textContent=money(x.monto);
       const d=document.createElement('div'); d.className='d'; d.textContent=[x.marca,x.color].filter(Boolean).join(' · ')||'Sin vehículo';
@@ -432,7 +454,8 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
     const monto=parseFloat(($('monto').value||'').replace(',','.'));
     if(!(monto>0)){ flash('Escribe el monto de la venta.'); $('monto').focus(); return; }
     let pagos=null;
-    if(splitOn){
+    if(devOn){ if(!pay){ flash('Elige cómo se devolvió el dinero.'); return; } }
+    else if(splitOn){
       const sv=spVals(), tot=taxOf(monto).total, ks=Object.keys(sv);
       if(ks.length<2){ flash('Para dividir, escribe el monto en dos formas de pago.'); return; }
       if(spSum(sv)!==tot){ flash('Los pagos deben sumar '+money(tot)+'.'); return; }
@@ -444,12 +467,13 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
     const c=taxOf(monto);
     const item={id:Date.now()+''+Math.random().toString(36).slice(2,6),medida:w+'/'+h+' R'+r,marca:$('marca').value.trim(),color:$('color').value.trim(),cant:qty,precio:pru>0?Math.round(pru*100)/100:null,monto:c.total,base:c.base,itbms:c.itbms,tasa:RATE,pago:pagos?METHODS.filter(m=>pagos[m]).join(' + '):pay,hora};
     if(pagos) item.pagos=pagos;
+    if(devOn){ item.dev=true; item.orig=$('devFecha').value||''; item.cant=-qty; item.monto=-c.total; item.base=-c.base; item.itbms=-c.itbms; }
     (data[day()]=data[day()]||[]).push(item);
     persist();
     ['w','h','r','marca','color','monto','precio'].forEach(id=>$(id).value='');
-    qty=1;$('q').value=1;pay=null;setSplit(false);montoManual=false;$('auto').textContent='se calcula solo';
+    qty=1;$('q').value=1;pay=null;setSplit(false);setDev(false);montoManual=false;$('auto').textContent='se calcula solo';
     $('pay').querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed','false'));
-    render(); preview(); flash('Venta guardada.',true); $('w').focus();
+    render(); preview(); flash(item.dev?'Devolución guardada.':'Venta guardada.',true); $('w').focus();
   });
 
   function summary(){
